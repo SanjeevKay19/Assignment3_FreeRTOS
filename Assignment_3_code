@@ -1,0 +1,228 @@
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include <freertos/queue.h>
+#include <freertos/semphr.h>
+//inclusion of necessary libraries for the implementation of multitasking using FreeRTOS
+
+
+//creation of a global struct to create an array to store and access frequencies
+struct t5freqs{
+  float freq[2];
+  };
+
+//creation of Semaphores for access data
+SemaphoreHandle_t xSemaphore1;
+SemaphoreHandle_t xSemaphore2;
+SemaphoreHandle_t xSemaphore3;
+
+//initialisation of pins and allocation of names to the input and output Ports 
+const int T2_freq = 23;
+const int T3_freq = 22;
+const int T4_pot = 21;
+const int LED_1 = 19;
+const int LED_Error = 18;
+const int T6_Btn_pin = 5;
+const int T6_LED_pin = 4;
+//Creation of global variables for the storage of the frequency that will provide us with global access
+float frequency_1 = 0;
+float frequency_2 = 0;
+bool Button_status = HIGH;
+const unsigned long debounceInterval = 5;
+unsigned long lastDebounced = 0;
+
+// QueueHandle_t Queue_1;
+QueueHandle_t Queue_2;
+
+// void Task1(void *pvParameters);
+// void Task2(void *pvParameters);
+// void Task3(void *pvParameters);
+// void Task4(void *pvParameters);
+// void Task5(void *pvParameters);
+// void Button_Task(void *pvParameters);
+// void LED_Task(void *pvParameters);
+
+//creation of Task Handles for the calling of the tasks Automatically
+// TaskHandle_t TskHndl_1;
+// TaskHandle_t TskHndl_2;
+// TaskHandle_t TskHndl_3;
+// TaskHandle_t TskHndl_4;
+// TaskHandle_t TskHndl_5;
+// TaskHandle_t TskHndl_6;
+// TaskHandle_t TskHndl_7;
+
+// void Button_Task(void *pvParameters)
+// {
+//   if (digitalRead (T6_Btn_pin == HIGH)
+//   {
+//     vTaskResume(TskHndl_6);
+//     button_status == HIGH;
+//   } 
+// }
+
+// void LED_Task(void *pvParameters)
+// {
+//   if (button_status = HIGH)
+//   {
+//     digitalWrite (T6_LED_pin) == HIGH;
+//   }
+//   elseif (button_status = LOW)
+//   {
+//     vTaskSuspend(TskHndl_7);}
+// }
+
+// void setup() {
+//   // Initialize the event queue
+//   eventQueue = xQueueCreate(10, sizeof(char) * 20);
+//   // Initialize the pushbutton and LED pins
+//   pinMode(pushButton, INPUT_PULLUP);
+//   pinMode(ledPin, OUTPUT);
+//   // Create the tasks
+//   xTaskCreate(monitorDigitalInputTask, "MonitorDigitalInputTask", 128, NULL, 1, NULL);
+//   xTaskCreate(controlLEDTask, "ControlLEDTask", 128, NULL, 2, NULL);
+//   // Start the scheduler
+//   vTaskStartScheduler();
+// }
+
+
+// void loop() {
+//   // As we are utilising RTOS for running of tasks repeatedly, Loop is empty:
+// }
+
+
+void setup() {
+Serial.begin (9600);
+pinMode (23, INPUT);
+pinMode (22, INPUT);
+pinMode (21, INPUT);
+pinMode (5, INPUT);
+pinMode (19, OUTPUT);
+pinMode (18, OUTPUT);
+pinMode (4, OUTPUT);
+// myMutex = xSemaphoreCreateMutex ();
+// if (myMutex == NULL)
+// {
+//   Serial.println("FAIL");
+// }
+
+// Queue_1 = xQueueCreate (10, sizeof(struct t5freqs));
+//Creation of a Queue to load The Button and LED Task
+Queue_2 = xQueueCreate(1024, sizeof (char) * 20);
+//Creation of Task handles
+xTaskCreate (Task1, "LED_Seq", 1024, NULL, 1, &Task1Handle);
+xTaskCreate (Task2, "Frequency1", 1024, NULL, 1, &Task2Handle);
+xTaskCreate (Task3, "Frequency2", 1024, NULL, 1, &Task3Handle);
+xTaskCreate (Task4, "PotMeasurement", 1024, NULL, 1, &Task4Handle);
+xTaskCreate (Task5, "PrintCalVal", 1024, NULL, 2, &Task5Handle);
+xTaskCreate (Button_Task, "DebouncedButton", 1024, NULL, 1, &Button_TaskHandle);
+xTaskCreate (LED_Task, "BlinkedLED", 1024, NULL, 1, NULL);
+//Running of the Scheduler to automatically execute
+vTaskStartScheduler();
+}
+
+void loop() {}
+
+void Task1(void *pvParameters){
+    while(true){
+  digitalWrite(LED_1, HIGH); // set pin 2 high for 200us
+  delayMicroseconds(200);
+  digitalWrite(LED_1, LOW); // set pin 2 low for 50us
+  delayMicroseconds(50);
+  digitalWrite(LED_1, HIGH); // set pin 2 high for 30us
+  delayMicroseconds(30);
+  digitalWrite(LED_1, LOW); // set pin 2 low for remaining period
+    }
+    vTaskDelay(pdMS_TO_TICKS(4)); //this is done to repeat this task in an interval of 4 ms
+}
+
+void Task2(void *pvParameters){
+    while (true) {
+      xSemaphoreTake(xSemaphore1, portMAX_DELAY); //Use of Semaphore to reduce violation
+   int count = 0;
+  count = pulseIn(T2_freq, HIGH); // measure the pulse width of the input signal high
+  count = count*2;
+  frequency_1 = 1000000.0 / (count); // calculate frequency in Hz
+  freq[1] = constrain(frequency_1, 333, 1000); // frequency between 333 and 1000 Hz
+  xSemaphoreGive (xSemaphore2);//Handing over Semaphore to reduce violation
+  }
+  vTaskDelay(pdMS_TO_TICKS(20));
+} 
+
+void Task3(void *pvParameters)
+{
+    while (true) {
+      xSemaphoreTake(xSemaphore2, portMAX_DELAY);
+      int count2 = 0;
+      count2 = pulseIn(t3_freq, HIGH); // measure the pulse width of the input signal
+      count2 = count2*2;
+      frequency_2 = 1000000.0 / (count2 ); // calculate frequency in Hz
+      freq[2] = constrain(frequency_2, 500, 1000);
+      xSemaphoreGive (xSemaphore3);
+  }
+  vTaskDelay(pdMS_TO_TICKS(8));
+} 
+
+void Task4(void *pvParameters)
+{
+    while (true) {
+    const int max_analog_input = 1023;
+    int readings[4];
+    int rd_num = 0;
+    int sum = 0;
+    int analogValue = analogRead(pot_t4);
+    sum -= readings[rd_num];
+    readings[rd_num] = analogValue;
+    rd_num = (rd_num+1) % 4;
+    int filtered_value = sum/4;
+  if (filtered_value >= (max_analog_input/2) )
+   {
+    digitalWrite(LED_Error, HIGH);
+   } else {
+     digitalWrite(LED_Error, LOW);
+   }
+   }
+  vTaskDelay(pdMS_TO_TICKS(20));
+  }
+
+void Task5(void *pvParameters)
+{
+  while(true){
+    xSemaphoreTake(xSemaphore3, portMAX_DELAY); //Cycle of Semaphores to allow data access for reading
+    int bounded_t2 = (freq[1]-333) / ((1000-333)/99); //Binding Frequency values from a range of 0 to 99
+    int bounded_t3 = (freq[2]-500) / ((1000-500)/99); //Binding Frequency values from a range of 0 to 99
+    Serial.println(bounded_t2);
+    Serial.println(bounded_t3);
+    xSemaphoreGive(xSemaphore1); //Return the Semaphore to Reading Frequencies
+    vTaskDelay(pdMS_TO_TICKS(100));
+  }
+}  
+
+// Define the task function for the monitor digital input task
+void Button_Task(void *pvParameters) {
+  while (1) {
+    // Read the pushbutton state
+    bool buttonState = digitalRead(pushButton);
+    // Debounce the button
+    if (buttonState != Button_Status) {
+      if (millis() - lastDebounced > debounceInterval) {
+        buttonState = button_Status;
+        if (buttonState == HIGH) {
+          // Queue an event
+          xQueueSend(Queue_2, "PushButtonPressed", 0);
+        }
+      }
+      lastDebounced = millis();
+    }
+  }
+}
+
+// Define the task function for the control LED task
+void LED_Task(void *pvParameters) {
+  while (1) {
+    // Wait for an event to be received
+    char eventMessage[20];
+    if (xQueueReceive(Queue_2, &eventMessage, portMAX_DELAY) == pdTRUE) {
+      // Act upon the event by toggling the LED
+      digitalWrite(T6_LED_pin, !digitalRead(ledPin));
+    }
+  }
+}
